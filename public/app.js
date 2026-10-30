@@ -18,12 +18,9 @@
     const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
     return `${value.year}-${value.month}-${value.day}`;
   }
-  function formatDuration(minutes) {
-    const hours = Math.floor(minutes / 60);
-    const rest = minutes % 60;
-    if (!hours) return `${rest} min`;
-    if (!rest) return `${hours} ${hours === 1 ? 'ora' : 'ore'}`;
-    return `${hours} ${hours === 1 ? 'ora' : 'ore'} e ${rest} min`;
+  function formatHours(minutes) {
+    const hours = Number((minutes / 60).toFixed(2));
+    return `${hours.toLocaleString('it-IT', {maximumFractionDigits:2})} ${hours === 1 ? 'ora' : 'ore'}`;
   }
   function displayDate(value) {
     return new Intl.DateTimeFormat('it-IT', {weekday:'short', day:'numeric', month:'short', year:'numeric'}).format(new Date(`${value}T12:00:00`));
@@ -49,16 +46,17 @@
     saveHours(data);
   }
   function renderHours() {
+    if (!$('hoursList')) return;
     const data = readHours();
     const records = [...data.feed, ...data.manual].sort((a, b) => `${a.date}T${a.start}`.localeCompare(`${b.date}T${b.start}`));
     const completed = records.filter(record => record.done);
     const totalMinutes = completed.reduce((sum, record) => sum + Math.max(0, minuteOfDay(record.end) - minuteOfDay(record.start)), 0);
-    $('hoursTotal').textContent = formatDuration(totalMinutes);
+    $('hoursTotal').textContent = formatHours(totalMinutes);
     $('hoursEmpty').hidden = records.length > 0;
     $('hoursList').innerHTML = records.map(record => {
       const isFuture = record.date > todayInRome();
       const duration = Math.max(0, minuteOfDay(record.end) - minuteOfDay(record.start));
-      const stateLabel = record.done ? `Svolta · ${formatDuration(duration)}` : isFuture ? 'Da svolgere' : 'Da confermare';
+      const stateLabel = record.done ? `Svolta · ${formatHours(duration)}` : isFuture ? 'Da svolgere' : 'Da confermare';
       const actionLabel = record.done ? 'Annulla conferma' : 'Segna svolta';
       return `<article class="hours-row ${record.done ? 'is-done' : ''}">
         <div class="hours-row-main"><div class="hours-row-heading"><strong>${esc(record.title)}</strong><span class="hours-state">${esc(stateLabel)}</span></div>
@@ -153,6 +151,17 @@
     render();
   }
 
+  async function loadHoursPage() {
+    try {
+      const response = await fetch(`data/convocations.json?v=${Date.now()}`, {cache:'no-store'});
+      if (!response.ok) throw new Error('Dati non disponibili');
+      const data = await response.json();
+      state.events = (data.events || []).filter(e => classes.includes(e.class));
+      syncHoursWithFeed();
+    } catch {}
+    renderHours();
+  }
+
   function initGoogle() {
     const clientId = window.APP_CONFIG?.googleClientId;
     if (!clientId || clientId.includes('INSERISCI')) {
@@ -239,6 +248,7 @@
     render();
   }
 
+  if ($('connectButton')) {
   $('connectButton').addEventListener('click', () => {
     if (!window.APP_CONFIG?.googleClientId || window.APP_CONFIG.googleClientId.includes('INSERISCI')) {
       $('calendarMessage').textContent = 'Prima della pubblicazione va configurato il Client ID OAuth in public/config.js.';
@@ -249,6 +259,9 @@
   });
   $('addButton').addEventListener('click', addSelected);
   $('refreshButton').addEventListener('click', loadEvents);
+  }
+
+  if ($('hoursList')) {
   $('hoursList').addEventListener('click', (event) => {
     const button = event.target.closest('[data-hours-action]');
     if (!button) return;
@@ -295,6 +308,11 @@
     renderHours();
   });
   $('manualEntryForm').elements.date.value = todayInRome();
+  renderHours();
+  loadHoursPage();
+  }
+
+  if ($('installButton')) {
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault(); state.installPrompt = event; $('installButton').hidden = false;
   });
@@ -302,6 +320,7 @@
     if (!state.installPrompt) return;
     state.installPrompt.prompt(); await state.installPrompt.userChoice; state.installPrompt = null; $('installButton').hidden = true;
   });
+  }
   if ('serviceWorker' in navigator) {
     let refreshed = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -311,7 +330,9 @@
     });
     navigator.serviceWorker.register('sw.js').then(registration => registration.update()).catch(() => {});
   }
-  initGoogle();
-  loadEvents();
+  if ($('eventsList')) {
+    initGoogle();
+    loadEvents();
+  }
 })();
 
