@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#143c35" />
+    <meta name="description" content="Rivedi e aggiungi a Google Calendar i consigli delle tue classi." />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Consigli di classe</title>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="Consigli di classe, home">
+          <span class="brand-mark" aria-hidden="true">C</span>
+          <span>agenda docenti</span>
+        </a>
+        <button id="installButton" class="install-button" hidden>Installa app</button>
+      </header>
+
+      <section class="intro">
+        <p class="eyebrow">IPSIA DALMAZIO BIRAGO · TORINO</p>
+        <h1>I tuoi consigli,<br /><em>senza perderne uno.</em></h1>
+        <p class="lede">Controllo delle circolari e aggiunta al calendario, con la tua conferma.</p>
+      </section>
+
+      <section class="status-card" aria-live="polite">
+        <div class="status-icon" aria-hidden="true">↻</div>
+        <div class="status-copy">
+          <strong id="scanStatus">Controllo delle circolari</strong>
+          <span id="lastChecked">Caricamento dei dati…</span>
+        </div>
+        <button id="refreshButton" class="icon-button" aria-label="Aggiorna circolari" title="Aggiorna">↻</button>
+      </section>
+
+      <section class="events-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">DA RIVEDERE</p>
+            <h2 id="eventHeading">Eventi trovati</h2>
+          </div>
+          <span id="pendingCount" class="count-badge">0</span>
+        </div>
+        <p class="section-note">Controlla gli orari e seleziona solo gli eventi che vuoi aggiungere.</p>
+        <div id="eventsList" class="events-list"></div>
+        <div id="emptyState" class="empty-state" hidden>
+          <span class="empty-check" aria-hidden="true">✓</span>
+          <strong>Sei in pari.</strong>
+          <span>Non ci sono nuovi consigli da confermare.</span>
+        </div>
+      </section>
+
+      <section class="calendar-panel">
+        <div class="calendar-copy">
+          <p class="eyebrow">IL TUO CALENDARIO</p>
+          <h2>Conferma e aggiungi</h2>
+          <p>Collega Google Calendar una volta. Gli eventi selezionati verranno inseriti solo quando tocchi il pulsante qui sotto.</p>
+        </div>
+        <div class="calendar-actions">
+          <button id="connectButton" class="button button-secondary">Collega Google</button>
+          <button id="addButton" class="button button-primary" disabled>Aggiungi selezionati</button>
+        </div>
+        <p id="calendarMessage" class="inline-message" aria-live="polite"></p>
+      </section>
+
+      <footer class="footer">
+        <span>Le circolari sono pubblicate sul sito della scuola.</span>
+        <a href="https://ipsiabirago.edu.it/circolare/" target="_blank" rel="noreferrer">Apri le circolari ↗</a>
+      </footer>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="config.js"></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="app.js" defer></script>
+  </body>
+</html>
