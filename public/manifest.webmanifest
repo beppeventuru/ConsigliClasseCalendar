@@ -1,0 +1,12 @@
+{
+  "name": "Consigli di classe",
+  "short_name": "Consigli",
+  "description": "Rivedi e aggiungi al calendario Google i consigli delle tue classi.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f6f1",
+  "theme_color": "#143c35",
+  "lang": "it",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
