@@ -34,7 +34,7 @@
       group.classes = group.members.map(member => member.class);
       group.rooms = [...new Set(group.members.map(member => member.room).filter(Boolean))];
       group.identity = `${group.sourceId}:${group.date}:${group.classes.slice().sort().join(',')}`;
-      group.version = group.members.map(member => member.key).sort().join('|');
+      group.version = group.members.map(member => `${member.key}:${member.start}-${member.end}:${JSON.stringify(member.agenda || [])}`).sort().join('|');
       group.confirmedKey = `${group.identity}|${group.version}`;
       return group;
     });
@@ -130,13 +130,15 @@
     for (const event of selected) {
       try {
         const classLabel = event.classes.join(', ');
-        const ranges = event.members.map(member => `${member.start}–${member.end} ${member.class}`).join('\n');
+        const ranges = event.members.flatMap(member => member.agenda?.length
+          ? member.agenda.map(part => `${part.start}–${part.end} ${part.label}`)
+          : [`${member.start}–${member.end} ${member.class}`]).join('\n');
         const privateProperties = {consiglioGroupKey:event.identity};
         for (const member of event.members) privateProperties[`consiglio_${member.class}`] = `${member.sourceId}:${member.date}`;
         const body = {
           summary: event.classes.length > 1 ? `Consigli di classe: ${classLabel}` : `Consiglio di classe ${classLabel}`,
           location: event.rooms.length ? `Aula ${event.rooms.join(', ')}, IPSIA Dalmazio Birago, Torino` : 'IPSIA Dalmazio Birago, Torino',
-          description: `Orari delle classi:\n${ranges}\n\nConvocazione da ${event.sourceLabel || 'circolare scolastica'}.\n${event.sourceUrl || 'https://ipsiabirago.edu.it/circolare/'}`,
+          description: `Orari e fasi del consiglio:\n${ranges}\n\nConvocazione da ${event.sourceLabel || 'circolare scolastica'}.\n${event.sourceUrl || 'https://ipsiabirago.edu.it/circolare/'}`,
           start: {dateTime:`${event.date}T${event.start}:00${romeOffset(event.date,event.start)}`, timeZone:'Europe/Rome'},
           end: {dateTime:`${event.date}T${event.end}:00${romeOffset(event.date,event.end)}`, timeZone:'Europe/Rome'},
           extendedProperties: {private:privateProperties},
