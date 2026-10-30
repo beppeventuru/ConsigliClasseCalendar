@@ -21,7 +21,7 @@ FEED = ROOT / "public" / "data" / "convocations.json"
 BASE = "https://ipsiabirago.edu.it/circolare/"
 CLASSES = {"1A", "1B", "1C", "1M", "1N", "2B", "2C", "2D", "2E", "3A"}
 HEADERS = {"User-Agent": "ConsigliClasseCalendar/1.0 (public school circular monitor)"}
-TIME_RANGE = re.compile(r"(?P<start>\d{1,2}[.:]\d{2})\s*[–—-]\s*(?P<end>\d{1,2}[.:]\d{2})\s+(?P<class>\d[A-Z])\b(?P<tail>[^\n]*)", re.I)
+TIME_RANGE = re.compile(r"(?P<start>\d{1,2}[.:]\d{2})\s*[–—-]\s*(?P<end>\d{1,2}[.:]\d{2})\s+(?P<label>GLO|\d[A-Z](?:\s+Rappresentanti)?)\b(?P<tail>[^\n]*)", re.I)
 DATE_RE = re.compile(r"(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](20\d{2})(?!\d)")
 
 
@@ -111,6 +111,7 @@ def parse_pdf(pdf_url: str, title: str, detail_url: str) -> list[dict]:
     for page in document:
         current_date: date | None = None
         lines = page.get_text("text", sort=True).splitlines()
+        page_rows: list[dict] = []
         for line in lines:
             date_match = DATE_RE.search(line)
             if date_match:
@@ -119,25 +120,40 @@ def parse_pdf(pdf_url: str, title: str, detail_url: str) -> list[dict]:
                 except ValueError:
                     pass
             for match in TIME_RANGE.finditer(line):
-                class_name = match.group("class").upper()
-                if class_name not in CLASSES or current_date is None:
+                if current_date is None:
                     continue
-                if "rappresentanti" in norm(match.group("tail")):
-                    continue
+                label = re.sub(r"\s+", " ", match.group("label")).strip()
                 room_match = re.search(r"\b(\d{1,3}|Pisacane)\b", match.group("tail"), re.I)
                 start, end = parse_time(match.group("start")), parse_time(match.group("end"))
-                event_key = f"{source_id}:{current_date.isoformat()}:{class_name}:{start}"
-                rows.append({
-                    "key": event_key,
-                    "class": class_name,
-                    "date": current_date.isoformat(),
-                    "start": start,
-                    "end": end,
-                    "room": room_match.group(1) if room_match else "",
-                    "sourceId": source_id,
-                    "sourceLabel": label,
-                    "sourceUrl": detail_url,
-                })
+                page_rows.append({"date": current_date.isoformat(), "label": label, "start": start, "end": end,
+                                  "room": room_match.group(1) if room_match else ""})
+        for index, row in enumerate(page_rows):
+            class_match = re.fullmatch(r"(\d[A-Z])", row["label"], re.I)
+            if not class_match:
+                continue
+            class_name = class_match.group(1).upper()
+            if class_name not in CLASSES:
+                continue
+            agenda = [{"start": row["start"], "end": row["end"], "label": class_name}]
+            full_end = row["end"]
+            for followup in page_rows[index + 1:]:
+                if followup["date"] != row["date"] or re.fullmatch(r"\d[A-Z]", followup["label"], re.I):
+                    break
+                agenda.append({"start": followup["start"], "end": followup["end"], "label": followup["label"]})
+                full_end = followup["end"]
+            event_key = f"{source_id}:{row['date']}:{class_name}:{row['start']}"
+            rows.append({
+                "key": event_key,
+                "class": class_name,
+                "date": row["date"],
+                "start": row["start"],
+                "end": full_end,
+                "agenda": agenda,
+                "room": row["room"],
+                "sourceId": source_id,
+                "sourceLabel": label,
+                "sourceUrl": detail_url,
+            })
     return rows
 
 
@@ -185,3 +201,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
