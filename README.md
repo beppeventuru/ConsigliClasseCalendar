@@ -9,6 +9,7 @@ Questo repository è configurato con un Client ID OAuth per uso web; non inserir
 - Una GitHub Action controlla ogni giorno la sezione pubblica delle circolari.
 - Lo scanner cerca le convocazioni dei consigli, legge gli allegati PDF e seleziona gli orari delle classi configurate, includendo le fasi GLO e Rappresentanti collegate a ciascun consiglio.
 - La webapp mostra gli eventi trovati. L'inserimento avviene solo dopo aver selezionato gli eventi e aver premuto **Aggiungi selezionati**.
+- Il registro ore conserva le convocazioni caricate, permette di confermare quelle svolte, aggiungere attività manuali ed eliminare voci. Le ore confermate vengono sommate usando l'intero intervallo; eliminare una voce confermata la sottrae dal totale. I dati del registro sono conservati nel browser dello stesso dispositivo.
 - I consigli dello stesso giorno e della stessa circolare separati da al massimo 15 minuti sono mostrati come un unico blocco, dall'inizio della prima riunione alla fine dell'ultima; la descrizione di Calendar conserva gli orari delle singole classi.
 - Se una circolare aggiorna data o orario, la nuova versione viene proposta di nuovo; alla conferma l'evento Google Calendar esistente viene aggiornato invece di duplicarsi.
 - L'app si può aggiungere alla schermata Home del telefono. L'installazione non attiva controlli in background sul dispositivo: il controllo giornaliero avviene su GitHub Actions.
