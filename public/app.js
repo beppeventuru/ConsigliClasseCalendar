@@ -12,10 +12,38 @@
     return match ? `${match[1]}${match[2].padStart(2,'0')}:${match[3] || '00'}` : '+01:00';
   }
 
+  function minuteOfDay(value) {
+    const [hours, minutes] = value.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
+  function groupedEvents() {
+    const sorted = [...state.events].sort((a, b) => `${a.date}T${a.start}`.localeCompare(`${b.date}T${b.start}`));
+    const groups = [];
+    for (const event of sorted) {
+      const previous = groups.at(-1);
+      const gap = previous ? minuteOfDay(event.start) - minuteOfDay(previous.end) : Infinity;
+      if (previous && previous.date === event.date && previous.sourceId === event.sourceId && gap <= 15) {
+        previous.members.push(event);
+        if (event.end > previous.end) previous.end = event.end;
+      } else {
+        groups.push({date:event.date, start:event.start, end:event.end, sourceId:event.sourceId, sourceLabel:event.sourceLabel, sourceUrl:event.sourceUrl, members:[event]});
+      }
+    }
+    return groups.map(group => {
+      group.classes = group.members.map(member => member.class);
+      group.rooms = [...new Set(group.members.map(member => member.room).filter(Boolean))];
+      group.identity = `${group.sourceId}:${group.date}:${group.classes.slice().sort().join(',')}`;
+      group.version = group.members.map(member => member.key).sort().join('|');
+      group.confirmedKey = `${group.identity}|${group.version}`;
+      return group;
+    });
+  }
+
   function render() {
     const list = $('eventsList');
     const alreadyAdded = addedSet();
-    const fresh = state.events.filter(e => !alreadyAdded.has(e.key));
+    const fresh = groupedEvents().filter(event => !alreadyAdded.has(event.confirmedKey));
     $('pendingCount').textContent = fresh.length;
     $('eventHeading').textContent = fresh.length ? 'Eventi trovati' : 'Nessun nuovo evento';
     $('emptyState').hidden = fresh.length > 0;
@@ -23,14 +51,17 @@
       const d = new Date(`${event.date}T12:00:00`);
       const day = new Intl.DateTimeFormat('it-IT', {day:'2-digit'}).format(d);
       const month = new Intl.DateTimeFormat('it-IT', {month:'short'}).format(d).replace('.', '');
+      const classLabel = event.classes.join(', ');
+      const title = event.classes.length > 1 ? `Consigli di classe ${classLabel}` : `Consiglio di classe ${classLabel}`;
+      const roomLabel = event.rooms.length ? `Aula ${event.rooms.join(', ')}` : 'Aula da verificare';
       return `<article class="event-card">
         <div class="event-date"><strong>${day}</strong><span>${esc(month)} ${d.getFullYear()}</span></div>
-        <div class="event-main"><h3>Consiglio di classe ${esc(event.class)}</h3>
+        <div class="event-main"><h3>${esc(title)}</h3>
           <div class="event-time">${esc(event.start)} – ${esc(event.end)}</div>
-          <div class="event-meta"><span class="tag">Aula ${esc(event.room || 'da verificare')}</span><span class="tag">Da confermare</span></div>
+          <div class="event-meta"><span class="tag">${esc(roomLabel)}</span>${event.members.length > 1 ? '<span class="tag">Consigli consecutivi</span>' : ''}<span class="tag">Da confermare</span></div>
           <a class="source-link" href="${esc(event.sourceUrl || 'https://ipsiabirago.edu.it/circolare/')}" target="_blank" rel="noreferrer">Circolare ${esc(event.sourceLabel || '')} ↗</a>
         </div>
-        <input class="event-select" type="checkbox" checked aria-label="Seleziona ${esc(event.class)}" data-index="${index}" />
+        <input class="event-select" type="checkbox" checked aria-label="Seleziona ${esc(classLabel)}" data-index="${index}" />
       </article>`;
     }).join('');
     $('addButton').disabled = fresh.length === 0 || !state.token;
@@ -91,29 +122,43 @@
     const checks = [...document.querySelectorAll('.event-select:checked')];
     if (!state.token || !checks.length) return;
     const previous = addedSet();
-    const currentFresh = state.events.filter(e => !previous.has(e.key));
+    const currentFresh = groupedEvents().filter(event => !previous.has(event.confirmedKey));
     const selected = checks.map(c => currentFresh[Number(c.dataset.index)]).filter(Boolean);
     $('addButton').disabled = true;
     $('calendarMessage').textContent = 'Aggiunta degli eventi in corso…';
     let success = 0;
     for (const event of selected) {
       try {
+        const classLabel = event.classes.join(', ');
+        const ranges = event.members.map(member => `${member.start}–${member.end} ${member.class}`).join('\n');
+        const privateProperties = {consiglioGroupKey:event.identity};
+        for (const member of event.members) privateProperties[`consiglio_${member.class}`] = `${member.sourceId}:${member.date}`;
         const body = {
-          summary: `Consiglio di classe ${event.class}`,
-          location: event.room ? `Aula ${event.room}, IPSIA Dalmazio Birago, Torino` : 'IPSIA Dalmazio Birago, Torino',
-          description: `Convocazione da ${event.sourceLabel || 'circolare scolastica'}.\n${event.sourceUrl || 'https://ipsiabirago.edu.it/circolare/'}`,
+          summary: event.classes.length > 1 ? `Consigli di classe: ${classLabel}` : `Consiglio di classe ${classLabel}`,
+          location: event.rooms.length ? `Aula ${event.rooms.join(', ')}, IPSIA Dalmazio Birago, Torino` : 'IPSIA Dalmazio Birago, Torino',
+          description: `Orari delle classi:\n${ranges}\n\nConvocazione da ${event.sourceLabel || 'circolare scolastica'}.\n${event.sourceUrl || 'https://ipsiabirago.edu.it/circolare/'}`,
           start: {dateTime:`${event.date}T${event.start}:00${romeOffset(event.date,event.start)}`, timeZone:'Europe/Rome'},
           end: {dateTime:`${event.date}T${event.end}:00${romeOffset(event.date,event.end)}`, timeZone:'Europe/Rome'},
-          extendedProperties: {private:{consiglioIdentity:`${event.sourceId}:${event.date}:${event.class}`}},
+          extendedProperties: {private:privateProperties},
         };
-        const prior = await gapi.client.calendar.events.list({calendarId:'primary', timeMin:`${event.date}T00:00:00${romeOffset(event.date,'00:00')}`, timeMax:`${event.date}T23:59:59${romeOffset(event.date,'23:59')}`, privateExtendedProperty:`consiglioIdentity=${event.sourceId}:${event.date}:${event.class}`, maxResults:10});
-        if (prior.result.items?.length) {
-          const existing = prior.result.items[0];
-          await gapi.client.calendar.events.update({calendarId:'primary', eventId:existing.id, resource:{...existing,...body}});
+        const queries = [`consiglioGroupKey=${event.identity}`];
+        for (const member of event.members) {
+          queries.push(`consiglio_${member.class}=${member.sourceId}:${member.date}`);
+          queries.push(`consiglioIdentity=${member.sourceId}:${member.date}:${member.class}`);
+        }
+        const existingById = new Map();
+        for (const privateExtendedProperty of [...new Set(queries)]) {
+          const result = await gapi.client.calendar.events.list({calendarId:'primary', timeMin:`${event.date}T00:00:00${romeOffset(event.date,'00:00')}`, timeMax:`${event.date}T23:59:59${romeOffset(event.date,'23:59')}`, privateExtendedProperty, maxResults:20});
+          for (const item of result.result.items || []) existingById.set(item.id, item);
+        }
+        const prior = [...existingById.values()];
+        if (prior.length) {
+          await gapi.client.calendar.events.update({calendarId:'primary', eventId:prior[0].id, resource:body});
+          for (const duplicate of prior.slice(1)) await gapi.client.calendar.events.delete({calendarId:'primary', eventId:duplicate.id});
         } else {
           await gapi.client.calendar.events.insert({calendarId:'primary', resource:body});
         }
-        previous.add(event.key);
+        previous.add(event.confirmedKey);
         success++;
       } catch (error) {
         if (error.status === 401) state.token = null;
@@ -122,7 +167,7 @@
       }
     }
     localStorage.setItem(storageKey, JSON.stringify([...previous]));
-    if (success) $('calendarMessage').textContent = `${success} ${success === 1 ? 'evento aggiunto' : 'eventi aggiunti'} a Google Calendar.`;
+    if (success) $('calendarMessage').textContent = `${success} ${success === 1 ? 'evento aggiunto o aggiornato' : 'eventi aggiunti o aggiornati'} a Google Calendar.`;
     render();
   }
 
