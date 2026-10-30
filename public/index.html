@@ -52,6 +52,33 @@
         </div>
       </section>
 
+      <section class="hours-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">REGISTRO PERSONALE</p>
+            <h2>Ore svolte</h2>
+          </div>
+          <span id="hoursTotal" class="hours-total">0 min</span>
+        </div>
+        <p class="section-note">Le riunioni caricate compaiono qui. Il giorno della riunione, conferma quelle svolte. Il conteggio usa l’intero intervallo, comprese le pause.</p>
+        <div id="hoursList" class="hours-list"></div>
+        <div id="hoursEmpty" class="empty-state" hidden>
+          <strong>Nessuna riunione nel registro.</strong>
+          <span>Le convocazioni caricate e le voci manuali appariranno qui.</span>
+        </div>
+        <form id="manualEntryForm" class="manual-form">
+          <h3>Aggiungi un’attività manuale</h3>
+          <label>Descrizione<input name="title" type="text" maxlength="100" placeholder="Es. Consiglio straordinario" required /></label>
+          <div class="manual-form-row">
+            <label>Data<input name="date" type="date" required /></label>
+            <label>Inizio<input name="start" type="time" required /></label>
+            <label>Fine<input name="end" type="time" required /></label>
+          </div>
+          <button class="button button-secondary" type="submit">Aggiungi al registro</button>
+          <p id="hoursMessage" class="hours-message" aria-live="polite"></p>
+        </form>
+      </section>
+
       <section class="calendar-panel">
         <div class="calendar-copy">
           <p class="eyebrow">IL TUO CALENDARIO</p>
