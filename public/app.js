@@ -1,10 +1,74 @@
 (() => {
   const classes = ['1A','1B','1C','1M','1N','2B','2C','2D','2E','3A'];
   const storageKey = 'consigli-classe-added-v1';
+  const hoursStorageKey = 'consigli-classe-hours-v1';
   const state = {events: [], tokenClient: null, token: null, apiReady: false, gisReady: false, installPrompt: null};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const addedSet = () => new Set(JSON.parse(localStorage.getItem(storageKey) || '[]'));
+  function readHours() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(hoursStorageKey) || '{}');
+      return {feed:Array.isArray(saved.feed) ? saved.feed : [], manual:Array.isArray(saved.manual) ? saved.manual : [], ignored:Array.isArray(saved.ignored) ? saved.ignored : []};
+    } catch { return {feed:[], manual:[], ignored:[]}; }
+  }
+  function saveHours(data) { localStorage.setItem(hoursStorageKey, JSON.stringify(data)); }
+  function todayInRome() {
+    const parts = new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
+    const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${value.year}-${value.month}-${value.day}`;
+  }
+  function formatDuration(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    if (!hours) return `${rest} min`;
+    if (!rest) return `${hours} ${hours === 1 ? 'ora' : 'ore'}`;
+    return `${hours} ${hours === 1 ? 'ora' : 'ore'} e ${rest} min`;
+  }
+  function displayDate(value) {
+    return new Intl.DateTimeFormat('it-IT', {weekday:'short', day:'numeric', month:'short', year:'numeric'}).format(new Date(`${value}T12:00:00`));
+  }
+  function recordFromGroup(group, previous) {
+    const classesLabel = group.classes.join(', ');
+    return {id:group.identity, title:group.classes.length > 1 ? `Consigli di classe ${classesLabel}` : `Consiglio di classe ${classesLabel}`,
+      classes:group.classes, date:group.date, start:group.start, end:group.end, room:group.rooms.join(', '),
+      sourceLabel:group.sourceLabel, agenda:group.members.flatMap(member => member.agenda || []), done:Boolean(previous?.done), manual:false};
+  }
+  function syncHoursWithFeed() {
+    const data = readHours();
+    const groups = groupedEvents();
+    const incomingIds = new Set(groups.map(group => group.identity));
+    const today = todayInRome();
+    const previous = new Map(data.feed.map(record => [record.id, record]));
+    data.feed = data.feed.filter(record => record.done || record.date <= today || incomingIds.has(record.id));
+    for (const group of groups) {
+      if (data.ignored.includes(group.identity)) continue;
+      data.feed = data.feed.filter(record => record.id !== group.identity);
+      data.feed.push(recordFromGroup(group, previous.get(group.identity)));
+    }
+    saveHours(data);
+  }
+  function renderHours() {
+    const data = readHours();
+    const records = [...data.feed, ...data.manual].sort((a, b) => `${a.date}T${a.start}`.localeCompare(`${b.date}T${b.start}`));
+    const completed = records.filter(record => record.done);
+    const totalMinutes = completed.reduce((sum, record) => sum + Math.max(0, minuteOfDay(record.end) - minuteOfDay(record.start)), 0);
+    $('hoursTotal').textContent = formatDuration(totalMinutes);
+    $('hoursEmpty').hidden = records.length > 0;
+    $('hoursList').innerHTML = records.map(record => {
+      const isFuture = record.date > todayInRome();
+      const duration = Math.max(0, minuteOfDay(record.end) - minuteOfDay(record.start));
+      const stateLabel = record.done ? `Svolta · ${formatDuration(duration)}` : isFuture ? 'Da svolgere' : 'Da confermare';
+      const actionLabel = record.done ? 'Annulla conferma' : 'Segna svolta';
+      return `<article class="hours-row ${record.done ? 'is-done' : ''}">
+        <div class="hours-row-main"><div class="hours-row-heading"><strong>${esc(record.title)}</strong><span class="hours-state">${esc(stateLabel)}</span></div>
+          <span class="hours-row-detail">${esc(displayDate(record.date))} · ${esc(record.start)}–${esc(record.end)}${record.room ? ` · Aula ${esc(record.room)}` : ''}${record.manual ? ' · Manuale' : ''}</span>
+        </div>
+        <div class="hours-row-actions"><button type="button" class="hours-toggle" data-hours-action="toggle" data-hours-id="${esc(record.id)}" ${isFuture && !record.done ? 'disabled' : ''}>${actionLabel}</button>
+          <button type="button" class="hours-delete" data-hours-action="delete" data-hours-id="${esc(record.id)}" aria-label="Elimina ${esc(record.title)}">Elimina</button></div>
+      </article>`;
+    }).join('');
+  }
   function romeOffset(date, time) {
     const instant = new Date(`${date}T${time}:00`);
     const part = new Intl.DateTimeFormat('en', {timeZone:'Europe/Rome', timeZoneName:'shortOffset'}).formatToParts(instant).find(p => p.type === 'timeZoneName')?.value || 'GMT+1';
@@ -66,6 +130,7 @@
     }).join('');
     $('addButton').disabled = fresh.length === 0 || !state.token;
     $('addButton').textContent = state.token ? `Aggiungi selezionati (${fresh.length})` : 'Aggiungi selezionati';
+    renderHours();
   }
 
   async function loadEvents() {
@@ -75,6 +140,7 @@
       if (!response.ok) throw new Error('Dati non disponibili');
       const data = await response.json();
       state.events = (data.events || []).filter(e => classes.includes(e.class));
+      syncHoursWithFeed();
       $('lastChecked').textContent = data.checkedAt ? `Ultimo controllo: ${new Intl.DateTimeFormat('it-IT',{dateStyle:'medium',timeStyle:'short'}).format(new Date(data.checkedAt))}` : 'Controllo giornaliero attivo';
       if (data.warning) {
         $('scanStatus').textContent = 'Controllo da verificare';
@@ -183,6 +249,52 @@
   });
   $('addButton').addEventListener('click', addSelected);
   $('refreshButton').addEventListener('click', loadEvents);
+  $('hoursList').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-hours-action]');
+    if (!button) return;
+    const data = readHours();
+    const record = [...data.feed, ...data.manual].find(item => item.id === button.dataset.hoursId);
+    if (!record) return;
+    if (button.dataset.hoursAction === 'toggle') {
+      if (!record.done && record.date > todayInRome()) return;
+      record.done = !record.done;
+      saveHours(data);
+      renderHours();
+      return;
+    }
+    if (button.dataset.hoursAction === 'delete') {
+      if (!window.confirm(`Eliminare “${record.title}” solo dal registro ore? L’evento di Google Calendar non verrà modificato.`)) return;
+      if (record.manual) data.manual = data.manual.filter(item => item.id !== record.id);
+      else {
+        data.feed = data.feed.filter(item => item.id !== record.id);
+        if (!data.ignored.includes(record.id)) data.ignored.push(record.id);
+      }
+      saveHours(data);
+      renderHours();
+    }
+  });
+  $('manualEntryForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    const title = String(values.get('title') || '').trim();
+    const date = String(values.get('date') || '');
+    const start = String(values.get('start') || '');
+    const end = String(values.get('end') || '');
+    if (!title || !date || !start || !end || end <= start) {
+      $('hoursMessage').textContent = 'Inserisci tutti i dati e un orario di fine successivo all’inizio.';
+      return;
+    }
+    const data = readHours();
+    const id = `manual:${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+    data.manual.push({id, title, date, start, end, done:false, manual:true});
+    saveHours(data);
+    $('hoursMessage').textContent = 'Attività aggiunta al registro.';
+    form.reset();
+    form.elements.date.value = todayInRome();
+    renderHours();
+  });
+  $('manualEntryForm').elements.date.value = todayInRome();
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault(); state.installPrompt = event; $('installButton').hidden = false;
   });
