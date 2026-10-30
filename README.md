@@ -2,6 +2,8 @@
 
 PWA in italiano per le classi 1A, 1B, 1C, 1M, 1N, 2B, 2C, 2D, 2E e 3A dell'IPSIA Dalmazio Birago.
 
+Questo repository è configurato con un Client ID OAuth per uso web; non inserire mai un client secret nel codice pubblicato.
+
 ## Cosa fa
 
 - Una GitHub Action controlla ogni giorno la sezione pubblica delle circolari.
@@ -39,3 +41,4 @@ La versione iniziale non invia notifiche push quando il browser è chiuso: gli e
 - Lo scanner considera le prime pagine recenti della sezione Circolari, cerca titoli sui consigli di classe e legge gli allegati PDF pubblici.
 - La data e l'orario vengono ricalcolati con il fuso `Europe/Rome`, inclusa l'ora legale.
 - Se una convocazione è in un PDF scannerizzato o con una tabella non leggibile automaticamente, il riepilogo della circolare resta disponibile per la verifica manuale.
+
