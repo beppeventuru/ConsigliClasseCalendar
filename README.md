@@ -7,7 +7,7 @@ Questo repository è configurato con un Client ID OAuth per uso web; non inserir
 ## Cosa fa
 
 - Una GitHub Action controlla ogni giorno la sezione pubblica delle circolari.
-- Lo scanner cerca le convocazioni dei consigli, legge gli allegati PDF e seleziona gli orari delle classi configurate.
+- Lo scanner cerca le convocazioni dei consigli, legge gli allegati PDF e seleziona gli orari delle classi configurate, includendo le fasi GLO e Rappresentanti collegate a ciascun consiglio.
 - La webapp mostra gli eventi trovati. L'inserimento avviene solo dopo aver selezionato gli eventi e aver premuto **Aggiungi selezionati**.
 - I consigli dello stesso giorno e della stessa circolare separati da al massimo 15 minuti sono mostrati come un unico blocco, dall'inizio della prima riunione alla fine dell'ultima; la descrizione di Calendar conserva gli orari delle singole classi.
 - Se una circolare aggiorna data o orario, la nuova versione viene proposta di nuovo; alla conferma l'evento Google Calendar esistente viene aggiornato invece di duplicarsi.
