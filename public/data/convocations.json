@@ -1,35 +1,6 @@
 {
-  "checkedAt": "2026-11-13T14:28:07+00:00",
+  "checkedAt": "2026-11-14T13:24:30+00:00",
   "sourcePage": "https://ipsiabirago.edu.it/circolare/",
   "warning": null,
-  "events": [
-    {
-      "key": "circ46dida:2026-11-13:2C:14:00",
-      "class": "2C",
-      "date": "2026-11-13",
-      "start": "14:00",
-      "end": "15:45",
-      "agenda": [
-        {
-          "start": "14:00",
-          "end": "14:30",
-          "label": "2C"
-        },
-        {
-          "start": "14:30",
-          "end": "15:30",
-          "label": "GLO"
-        },
-        {
-          "start": "15:30",
-          "end": "15:45",
-          "label": "2C Rappresentanti"
-        }
-      ],
-      "room": "10",
-      "sourceId": "circ-46dida",
-      "sourceLabel": "46/DIDA",
-      "sourceUrl": "https://ipsiabirago.edu.it/circolare/"
-    }
-  ]
+  "events": []
 }
